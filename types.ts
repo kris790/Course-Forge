@@ -2,10 +2,38 @@
 export interface PracticalExercise {
   id: string;
   title: string;
-  type: 'Simulation' | 'Hands-on' | 'Team Scenario' | 'Individual Job Aid';
+  type: 'Simulation' | 'Hands-on' | 'Team Scenario' | 'Individual Job Aid' | 'Role Play';
   description: string;
   steps: string[];
   scoringCriteria: string[];
+}
+
+export interface CheckOnLearning {
+  question: string;
+  answer: string;
+  remediation?: string;
+}
+
+export interface LearningStepActivity {
+  title: string;
+  timeMinutes: number;
+  method: 'Lecture' | 'Practical Exercise' | 'Discussion' | 'Demonstration' | 'Role Play';
+  description: string;
+  practicalExercise?: PracticalExercise;
+  checkOnLearning?: CheckOnLearning;
+  guidance?: string; // Step-by-step guidance for ELM
+}
+
+export interface EnablingObjective {
+  id: string;
+  title: string;
+  learningStepActivities: LearningStepActivity[];
+}
+
+export interface TerminalObjective {
+  action: string;
+  condition: string;
+  standard: string;
 }
 
 export interface TestItem {
@@ -22,6 +50,7 @@ export interface TestVersion {
 }
 
 export interface Slide {
+  id: string;
   title: string;
   bulletPoints: string[];
   instructorNotes: string;
@@ -31,26 +60,40 @@ export interface Lesson {
   id: string;
   title: string;
   durationHours: number;
-  learningObjectives: string[];
-  practicalExercises: PracticalExercise[];
-  tests: {
-    diagnostic: TestVersion;
-    formative: TestVersion;
-    summative: TestVersion;
-  };
+  tlo?: TerminalObjective;
+  elos: EnablingObjective[];
   slides?: Slide[];
+  script?: string;
+  armyRegulations?: string[];
+  // Lesson Plan Specifics
+  scope?: string;
+  prerequisites?: string;
+  instructorQualifications?: string;
+  safetyConsiderations?: string;
+  summary?: string;
+  media?: string;
+  ratio?: string;
 }
 
 export interface Course {
   id: string;
+  courseNumber?: string;
+  schoolName?: string;
   mos: string;
   title: string;
   description: string;
   audience: string;
   totalDuration: number;
   lessons: Lesson[];
+  courseTests: {
+    diagnostic: TestVersion;
+    formative: TestVersion;
+    summative: TestVersion;
+  };
+  references: string[];
   status: 'Draft' | 'Validated' | 'Accredited';
   referenceMaterial?: string;
+  date?: string;
 }
 
 export type AddiePhase = 'Analysis' | 'Design' | 'Development' | 'Implementation' | 'Evaluation';

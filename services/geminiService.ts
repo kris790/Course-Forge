@@ -1,15 +1,18 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Course, Lesson, PracticalExercise, TestVersion, TestItem } from "../types";
+import { Course, Lesson } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const COURSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
     title: { type: Type.STRING },
+    courseNumber: { type: Type.STRING },
+    schoolName: { type: Type.STRING },
     description: { type: Type.STRING },
     totalDuration: { type: Type.NUMBER },
+    references: { type: Type.ARRAY, items: { type: Type.STRING } },
     lessons: {
       type: Type.ARRAY,
       items: {
@@ -18,41 +21,83 @@ const COURSE_SCHEMA = {
           id: { type: Type.STRING },
           title: { type: Type.STRING },
           durationHours: { type: Type.NUMBER },
-          learningObjectives: { type: Type.ARRAY, items: { type: Type.STRING } },
-        }
+          tlo: {
+            type: Type.OBJECT,
+            properties: {
+              action: { type: Type.STRING, description: "Bloom's Taxonomy Level 5 (Synthesis) or above action verb." },
+              condition: { type: Type.STRING },
+              standard: { type: Type.STRING }
+            },
+            required: ["action", "condition", "standard"]
+          },
+          elos: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: { id: { type: Type.STRING }, title: { type: Type.STRING } },
+              required: ["id", "title"]
+            }
+          }
+        },
+        required: ["id", "title", "durationHours", "tlo", "elos"]
       }
     }
   },
-  required: ["title", "description", "totalDuration", "lessons"]
+  required: ["title", "description", "totalDuration", "lessons", "references"]
 };
 
 const LESSON_CONTENT_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    practicalExercises: {
+    scope: { type: Type.STRING },
+    prerequisites: { type: Type.STRING },
+    instructorQualifications: { type: Type.STRING },
+    safetyConsiderations: { type: Type.STRING },
+    summary: { type: Type.STRING },
+    media: { type: Type.STRING },
+    ratio: { type: Type.STRING, description: "Instructor to Student Ratio" },
+    script: { type: Type.STRING },
+    armyRegulations: { type: Type.ARRAY, items: { type: Type.STRING } },
+    elos: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
           id: { type: Type.STRING },
           title: { type: Type.STRING },
-          type: { 
-            type: Type.STRING,
-            description: "Must be one of: 'Simulation', 'Hands-on', 'Team Scenario', 'Individual Job Aid'"
-          },
-          description: { type: Type.STRING },
-          steps: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING },
-            description: "Sequential, step-by-step execution instructions for the student."
-          },
-          scoringCriteria: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING },
-            description: "Measurable rubric items (e.g., 'Correctly identified discrepancy per AR 15-6')."
+          learningStepActivities: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                timeMinutes: { type: Type.NUMBER },
+                method: { type: Type.STRING },
+                description: { type: Type.STRING },
+                guidance: { type: Type.STRING, description: "Detailed step-by-step guidance adhering to Experiential Learning Model (ELM)." },
+                practicalExercise: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    type: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    steps: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    scoringCriteria: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  }
+                },
+                checkOnLearning: {
+                  type: Type.OBJECT,
+                  properties: {
+                    question: { type: Type.STRING },
+                    answer: { type: Type.STRING }
+                  }
+                }
+              },
+              required: ["title", "timeMinutes", "method", "description", "guidance"]
+            }
           }
         },
-        required: ["id", "title", "type", "description", "steps", "scoringCriteria"]
+        required: ["id", "title", "learningStepActivities"]
       }
     },
     slides: {
@@ -60,130 +105,68 @@ const LESSON_CONTENT_SCHEMA = {
       items: {
         type: Type.OBJECT,
         properties: {
+          id: { type: Type.STRING },
           title: { type: Type.STRING },
           bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
           instructorNotes: { type: Type.STRING }
         },
-        required: ["title", "bulletPoints", "instructorNotes"]
-      }
-    },
-    tests: {
-      type: Type.OBJECT,
-      properties: {
-        diagnostic: {
-          type: Type.OBJECT,
-          properties: {
-            versionType: { type: Type.STRING },
-            purpose: { type: Type.STRING },
-            items: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  question: { type: Type.STRING },
-                  options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  answer: { type: Type.STRING },
-                  bloomLevel: { type: Type.STRING }
-                }
-              }
-            }
-          }
-        },
-        formative: {
-           type: Type.OBJECT,
-           properties: {
-             versionType: { type: Type.STRING },
-             purpose: { type: Type.STRING },
-             items: {
-               type: Type.ARRAY,
-               items: {
-                 type: Type.OBJECT,
-                 properties: {
-                   question: { type: Type.STRING },
-                   options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                   answer: { type: Type.STRING },
-                   bloomLevel: { type: Type.STRING }
-                 }
-               }
-             }
-           }
-        },
-        summative: {
-           type: Type.OBJECT,
-           properties: {
-             versionType: { type: Type.STRING },
-             purpose: { type: Type.STRING },
-             items: {
-               type: Type.ARRAY,
-               items: {
-                 type: Type.OBJECT,
-                 properties: {
-                   question: { type: Type.STRING },
-                   options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                   answer: { type: Type.STRING },
-                   bloomLevel: { type: Type.STRING }
-                 }
-               }
-             }
-           }
-        }
+        required: ["id", "title", "bulletPoints", "instructorNotes"]
       }
     }
   },
-  required: ["practicalExercises", "slides", "tests"]
+  required: ["script", "elos", "slides", "scope", "summary"]
 };
 
 export const generateCourseStructure = async (mos: string, topic: string, duration: number, referenceMaterial?: string): Promise<Partial<Course>> => {
-  const referencePrompt = referenceMaterial 
-    ? `\n\nUSE THE FOLLOWING REFERENCE MATERIAL AS THE PRIMARY SOURCE FOR TERMINOLOGY AND STANDARDS:\n${referenceMaterial}`
-    : '';
-
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Generate a US Army Program of Instruction (POI) structure for MOS ${mos} on the topic of "${topic}" with a total duration of ${duration} hours. Follow TRADOC Pamphlet 350-70-14.${referencePrompt}`,
+    contents: `Generate a US Army POI structure for Senior Paralegals at TJAGLCS. 
+    Topic: "${topic}". MOS: ${mos}. Duration: ${duration} hours. 
+    Action verbs for TLOs MUST be Bloom's Taxonomy Level 5 or 6.`,
     config: {
       responseMimeType: "application/json",
-      responseSchema: COURSE_SCHEMA,
-      thinkingConfig: { thinkingBudget: 2000 }
+      responseSchema: COURSE_SCHEMA
     }
   });
-
   return JSON.parse(response.text);
 };
 
-export const generateLessonDetails = async (courseTitle: string, lessonTitle: string, objectives: string[], referenceMaterial?: string): Promise<any> => {
-  const referencePrompt = referenceMaterial 
-    ? `\n\nCRITICAL SOURCE MATERIAL:\nThe following text is the authoritative reference for this lesson. You MUST extract specific terminology, regulatory procedures, and Army standards from this text to create the exercises, slides, and test questions:\n${referenceMaterial}`
-    : '\n\nNote: No specific reference material provided. Use general US Army TRADOC standards and doctrinal knowledge for the specified topic.';
-
+export const generateLessonDetails = async (courseTitle: string, lesson: Lesson, referenceMaterial?: string): Promise<any> => {
+  const referencePrompt = referenceMaterial ? `\n\nREFERENCE SOURCE:\n${referenceMaterial}` : '';
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Generate comprehensive instructional materials for a US Army lesson following the ADDIE development model.
+    contents: `Develop a TJAGLCS Lesson Plan for Senior Paralegals for: "${lesson.title}". 
     
-Course: "${courseTitle}"
-Lesson: "${lessonTitle}"
-Target Learning Objectives: ${objectives.join(', ')}
-
-${referencePrompt}
-
-Requirements for Generation:
-1. Practical Exercises: Generate 3 rigorous, high-fidelity practical exercises (select from: Simulation, Hands-on, Team Scenario, Individual Job Aid).
-   - Each exercise MUST have a title reflecting a real-world military task.
-   - Steps: Provide granular, sequential execution steps. These must follow a logical military workflow (e.g., Prepare, Execute, Assess).
-   - Scoring Criteria: Define specific, measurable rubric items directly derived from the standards in the reference material (e.g., 'Pass if student identifies AR 15-6 violation in step 3').
-   - Alignment: Every instruction and criterion MUST be traceable back to the reference material or objectives.
-2. Presentation Slides: Create 5-7 classroom-ready slides. Each slide requires a clear title, 3-5 high-impact bullet points, and detailed Instructor Briefing Notes that provide background, explanation, and "Instructor Tips" for that specific slide.
-3. Validated Test Versions: Create three distinct, unique test variants:
-   - Diagnostic (Pre-test): Assessing prerequisites.
-   - Formative (Check-on-Learning): Questions for mid-lesson checks.
-   - Summative (End-of-Unit): Comprehensive final assessment.
-   - Quality Standard: All questions must correspond to Bloom's Taxonomy levels (K1-K4) and have answers explicitly supported by the provided source material.`,
+    REQUIRED:
+    1. Experiential Learning Model (ELM) flow for LSAs.
+    2. Word-for-word instructor script with [SHOW SLIDE X] markers.
+    3. Step-by-step guidance for every activity.
+    4. Scope, Prerequisites, and Special Instructor Qualifications.${referencePrompt}`,
     config: {
       responseMimeType: "application/json",
       responseSchema: LESSON_CONTENT_SCHEMA,
-      thinkingConfig: { thinkingBudget: 8000 }
+      thinkingConfig: { thinkingBudget: 4000 }
     }
   });
+  return JSON.parse(response.text);
+};
 
+export const generateCourseTests = async (course: Course): Promise<any> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Generate three versions of a test (Diagnostic, Formative, Summative) for the entire course: "${course.title}".`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          diagnostic: { type: Type.OBJECT, properties: { items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, answer: { type: Type.STRING }, bloomLevel: { type: Type.STRING } } } } } },
+          formative: { type: Type.OBJECT, properties: { items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, answer: { type: Type.STRING }, bloomLevel: { type: Type.STRING } } } } } },
+          summative: { type: Type.OBJECT, properties: { items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, answer: { type: Type.STRING }, bloomLevel: { type: Type.STRING } } } } } }
+        }
+      },
+      thinkingConfig: { thinkingBudget: 4000 }
+    }
+  });
   return JSON.parse(response.text);
 };

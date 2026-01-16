@@ -11,14 +11,13 @@ const App: React.FC = () => {
   const [view, setView] = useState<'dashboard' | 'wizard' | 'preview'>('dashboard');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
-  // Load from local storage for persistence (solo-dev friendly)
   useEffect(() => {
-    const saved = localStorage.getItem('army_courses');
+    const saved = localStorage.getItem('army_courses_v2');
     if (saved) setCourses(JSON.parse(saved));
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('army_courses', JSON.stringify(courses));
+    localStorage.setItem('army_courses_v2', JSON.stringify(courses));
   }, [courses]);
 
   const handleCourseCreated = (newCourse: Course) => {
