@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Course, Lesson } from "../types";
+import { Course, Lesson, TloSuggestion } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -46,75 +46,45 @@ const COURSE_SCHEMA = {
   required: ["title", "description", "totalDuration", "lessons", "references"]
 };
 
-const LESSON_CONTENT_SCHEMA = {
+const TEST_ITEM_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    scope: { type: Type.STRING },
-    prerequisites: { type: Type.STRING },
-    instructorQualifications: { type: Type.STRING },
-    safetyConsiderations: { type: Type.STRING },
-    summary: { type: Type.STRING },
-    media: { type: Type.STRING },
-    ratio: { type: Type.STRING, description: "Instructor to Student Ratio" },
-    script: { type: Type.STRING },
-    armyRegulations: { type: Type.ARRAY, items: { type: Type.STRING } },
-    elos: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          id: { type: Type.STRING },
-          title: { type: Type.STRING },
-          learningStepActivities: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                timeMinutes: { type: Type.NUMBER },
-                method: { type: Type.STRING },
-                description: { type: Type.STRING },
-                guidance: { type: Type.STRING, description: "Detailed step-by-step guidance adhering to Experiential Learning Model (ELM)." },
-                practicalExercise: {
-                  type: Type.OBJECT,
-                  properties: {
-                    title: { type: Type.STRING },
-                    type: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    steps: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    scoringCriteria: { type: Type.ARRAY, items: { type: Type.STRING } }
-                  }
-                },
-                checkOnLearning: {
-                  type: Type.OBJECT,
-                  properties: {
-                    question: { type: Type.STRING },
-                    answer: { type: Type.STRING }
-                  }
-                }
-              },
-              required: ["title", "timeMinutes", "method", "description", "guidance"]
-            }
-          }
-        },
-        required: ["id", "title", "learningStepActivities"]
-      }
+    type: { 
+      type: Type.STRING, 
+      description: "One of: 'Multiple Choice', 'Complex Multiple Choice', 'Short Answer Essay', 'True/False', 'Fill in the Blank'" 
     },
-    slides: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          id: { type: Type.STRING },
-          title: { type: Type.STRING },
-          bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
-          instructorNotes: { type: Type.STRING }
-        },
-        required: ["id", "title", "bulletPoints", "instructorNotes"]
-      }
+    question: { type: Type.STRING },
+    options: { 
+      type: Type.ARRAY, 
+      items: { type: Type.STRING },
+      description: "Required for Multiple Choice, Complex Multiple Choice, and True/False."
+    },
+    answer: { 
+      type: Type.STRING, 
+      description: "The correct answer or solution key." 
+    },
+    rubric: { 
+      type: Type.STRING, 
+      description: "Required for Short Answer Essay. Define 3-5 specific grading points." 
+    },
+    bloomLevel: { 
+      type: Type.STRING, 
+      description: "K1, K2, K3, or K4" 
     }
   },
-  required: ["script", "elos", "slides", "scope", "summary"]
+  required: ["type", "question", "answer", "bloomLevel"]
+};
+
+const TEST_VERSION_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    purpose: { type: Type.STRING },
+    items: {
+      type: Type.ARRAY,
+      items: TEST_ITEM_SCHEMA
+    }
+  },
+  required: ["purpose", "items"]
 };
 
 export const generateCourseStructure = async (mos: string, topic: string, duration: number, referenceMaterial?: string): Promise<Partial<Course>> => {
@@ -144,7 +114,22 @@ export const generateLessonDetails = async (courseTitle: string, lesson: Lesson,
     4. Scope, Prerequisites, and Special Instructor Qualifications.${referencePrompt}`,
     config: {
       responseMimeType: "application/json",
-      responseSchema: LESSON_CONTENT_SCHEMA,
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          scope: { type: Type.STRING },
+          prerequisites: { type: Type.STRING },
+          instructorQualifications: { type: Type.STRING },
+          safetyConsiderations: { type: Type.STRING },
+          summary: { type: Type.STRING },
+          media: { type: Type.STRING },
+          ratio: { type: Type.STRING },
+          script: { type: Type.STRING },
+          armyRegulations: { type: Type.ARRAY, items: { type: Type.STRING } },
+          elos: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, learningStepActivities: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, timeMinutes: { type: Type.NUMBER }, method: { type: Type.STRING }, description: { type: Type.STRING }, guidance: { type: Type.STRING } } } } } } },
+          slides: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } }, instructorNotes: { type: Type.STRING } } } }
+        }
+      },
       thinkingConfig: { thinkingBudget: 4000 }
     }
   });
@@ -154,18 +139,59 @@ export const generateLessonDetails = async (courseTitle: string, lesson: Lesson,
 export const generateCourseTests = async (course: Course): Promise<any> => {
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Generate three versions of a test (Diagnostic, Formative, Summative) for the entire course: "${course.title}".`,
+    contents: `Generate three versions of a test (Diagnostic, Formative, Summative) for the course: "${course.title}".
+    
+    MANDATORY: Each test version MUST include a balanced mix of:
+    - Multiple Choice
+    - Complex Multiple Choice (Select all that apply)
+    - Short Answer Essay (Include a clear grading RUBRIC)
+    - True/False
+    - Fill in the Blank
+    
+    Ensure questions align with MOS ${course.mos} standards and the course references.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          diagnostic: { type: Type.OBJECT, properties: { items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, answer: { type: Type.STRING }, bloomLevel: { type: Type.STRING } } } } } },
-          formative: { type: Type.OBJECT, properties: { items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, answer: { type: Type.STRING }, bloomLevel: { type: Type.STRING } } } } } },
-          summative: { type: Type.OBJECT, properties: { items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, answer: { type: Type.STRING }, bloomLevel: { type: Type.STRING } } } } } }
-        }
+          diagnostic: TEST_VERSION_SCHEMA,
+          formative: TEST_VERSION_SCHEMA,
+          summative: TEST_VERSION_SCHEMA
+        },
+        required: ["diagnostic", "formative", "summative"]
       },
-      thinkingConfig: { thinkingBudget: 4000 }
+      thinkingConfig: { thinkingBudget: 8000 }
+    }
+  });
+  return JSON.parse(response.text);
+};
+
+export const reviewCourseTlos = async (course: Course): Promise<TloSuggestion[]> => {
+  const lessonsData = course.lessons.map(l => ({
+    id: l.id,
+    title: l.title,
+    tlo: l.tlo
+  }));
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Review TLOs for ${course.title}. Bloom's Level 5-6 Action verbs, specific conditions, measurable standards.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            lessonId: { type: Type.STRING },
+            lessonTitle: { type: Type.STRING },
+            suggestedAction: { type: Type.STRING },
+            suggestedCondition: { type: Type.STRING },
+            suggestedStandard: { type: Type.STRING },
+            reasoning: { type: Type.STRING }
+          }
+        }
+      }
     }
   });
   return JSON.parse(response.text);

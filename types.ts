@@ -36,10 +36,24 @@ export interface TerminalObjective {
   standard: string;
 }
 
+export interface TloSuggestion {
+  lessonId: string;
+  lessonTitle: string;
+  suggestedAction: string;
+  suggestedCondition: string;
+  suggestedStandard: string;
+  reasoning: string;
+}
+
+export type TestItemType = 'Multiple Choice' | 'Complex Multiple Choice' | 'Short Answer Essay' | 'True/False' | 'Fill in the Blank';
+
 export interface TestItem {
+  id?: string;
+  type: TestItemType;
   question: string;
   options?: string[];
   answer: string;
+  rubric?: string; // Specific to Short Answer Essay
   bloomLevel: 'K1' | 'K2' | 'K3' | 'K4';
 }
 

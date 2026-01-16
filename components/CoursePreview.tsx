@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { Course, Lesson, TestItem } from '../types';
-import { generateLessonDetails, generateCourseTests } from '../services/geminiService';
+import { Course, Lesson, TestItem, TloSuggestion } from '../types';
+import { generateLessonDetails, generateCourseTests, reviewCourseTlos } from '../services/geminiService';
 import TestCard from './TestCard';
 import SlideViewer from './SlideViewer';
 import CourseOutline from './CourseOutline';
 import TrainingSupportPackage from './TrainingSupportPackage';
 import LessonPlanDocument from './LessonPlanDocument';
+import TloReviewer from './TloReviewer';
 
 interface CoursePreviewProps {
   course: Course;
@@ -19,6 +20,7 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'objectives' | 'slides' | 'script' | 'tests' | 'outline' | 'tsp' | 'lessonplan'>('objectives');
   const [isEditingScript, setIsEditingScript] = useState(false);
+  const [tloSuggestions, setTloSuggestions] = useState<TloSuggestion[] | null>(null);
 
   const selectedLesson = course.lessons.find(l => l.id === selectedLessonId);
 
@@ -77,6 +79,37 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleReviewTlos = async () => {
+    setLoading(true);
+    try {
+      const suggestions = await reviewCourseTlos(course);
+      setTloSuggestions(suggestions);
+    } catch (error) {
+      console.error(error);
+      alert("Error reviewing objectives.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApplyTloSuggestion = (sug: TloSuggestion) => {
+    const updatedLessons = course.lessons.map(l => {
+      if (l.id === sug.lessonId) {
+        return {
+          ...l,
+          tlo: {
+            action: sug.suggestedAction,
+            condition: sug.suggestedCondition,
+            standard: sug.suggestedStandard
+          }
+        };
+      }
+      return l;
+    });
+    onUpdateCourse({ ...course, lessons: updatedLessons });
+    setTloSuggestions(prev => prev ? prev.filter(s => s.lessonId !== sug.lessonId) : null);
   };
 
   return (
@@ -156,9 +189,14 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
                 <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1 block">Module Management</span>
                 <h3 className="text-3xl font-bold text-slate-900 leading-tight">{selectedLesson.title}</h3>
               </div>
-              <button onClick={handleGenerateLessonContent} disabled={loading} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl hover:bg-slate-800 transition-all">
-                {loading ? 'Developing...' : '🤖 Generate Lesson Plan Artifacts'}
-              </button>
+              <div className="flex gap-3">
+                <button onClick={handleReviewTlos} disabled={loading} className="bg-amber-100 text-amber-800 border border-amber-200 px-6 py-3 rounded-xl font-bold text-sm hover:bg-amber-200 transition-all flex items-center gap-2">
+                   {loading ? '...' : '🔍 Review TLOs'}
+                </button>
+                <button onClick={handleGenerateLessonContent} disabled={loading} className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-xl hover:bg-slate-800 transition-all">
+                  {loading ? 'Developing...' : '🤖 Generate Lesson Plan Artifacts'}
+                </button>
+              </div>
             </div>
 
             <div className="flex border-b border-slate-100 mb-8 space-x-1 overflow-x-auto">
@@ -266,6 +304,16 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
           </div>
         )}
       </div>
+
+      {/* TLO Review Overlay */}
+      {tloSuggestions && (
+        <TloReviewer 
+          suggestions={tloSuggestions} 
+          course={course} 
+          onApply={handleApplyTloSuggestion} 
+          onClose={() => setTloSuggestions(null)} 
+        />
+      )}
     </div>
   );
 };
