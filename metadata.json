@@ -1,0 +1,5 @@
+{
+  "name": "Army CourseForge",
+  "description": "An automated course development tool for US Army training, following the TRADOC ADDIE model (Pamphlet 350-70-14). Generates POIs, practical exercises, and diagnostic/formative/summative tests.",
+  "requestFramePermissions": []
+}
