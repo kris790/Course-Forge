@@ -4,6 +4,10 @@ import { Course, Lesson, TloSuggestion } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+const cleanJson = (text: string): string => {
+  return text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+};
+
 const COURSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -87,18 +91,32 @@ const TEST_VERSION_SCHEMA = {
   required: ["purpose", "items"]
 };
 
-export const generateCourseStructure = async (mos: string, topic: string, duration: number, referenceMaterial?: string): Promise<Partial<Course>> => {
+export const generateCourseStructure = async (
+  mos: string, 
+  topic: string, 
+  duration: number, 
+  referenceMaterial?: string,
+  keyTasks?: string
+): Promise<Partial<Course>> => {
+  const taskPrompt = keyTasks ? `\n\nCORE TASKS/SKILLS TO COVER (MANDATORY):\n${keyTasks}` : '';
+  const referencePrompt = referenceMaterial ? `\n\nREFERENCE DATA:\n${referenceMaterial}` : '';
+
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: `Generate a US Army POI structure for Senior Paralegals at TJAGLCS. 
-    Topic: "${topic}". MOS: ${mos}. Duration: ${duration} hours. 
+    Topic: "${topic}". MOS: ${mos}. Target Duration: ${duration} hours. 
+    
+    GUIDANCE: 
+    The user has already completed the Task Analysis. Use the provided "CORE TASKS/SKILLS" as the absolute foundation for the lesson modules. Each lesson should map back to one or more of these tasks.${taskPrompt}${referencePrompt}
+    
     Action verbs for TLOs MUST be Bloom's Taxonomy Level 5 or 6.`,
     config: {
       responseMimeType: "application/json",
-      responseSchema: COURSE_SCHEMA
+      responseSchema: COURSE_SCHEMA,
+      thinkingConfig: { thinkingBudget: 2000 }
     }
   });
-  return JSON.parse(response.text);
+  return JSON.parse(cleanJson(response.text));
 };
 
 export const generateLessonDetails = async (courseTitle: string, lesson: Lesson, referenceMaterial?: string): Promise<any> => {
@@ -133,7 +151,7 @@ export const generateLessonDetails = async (courseTitle: string, lesson: Lesson,
       thinkingConfig: { thinkingBudget: 4000 }
     }
   });
-  return JSON.parse(response.text);
+  return JSON.parse(cleanJson(response.text));
 };
 
 export const generateCourseTests = async (course: Course): Promise<any> => {
@@ -163,7 +181,7 @@ export const generateCourseTests = async (course: Course): Promise<any> => {
       thinkingConfig: { thinkingBudget: 8000 }
     }
   });
-  return JSON.parse(response.text);
+  return JSON.parse(cleanJson(response.text));
 };
 
 export const reviewCourseTlos = async (course: Course): Promise<TloSuggestion[]> => {
@@ -194,5 +212,5 @@ export const reviewCourseTlos = async (course: Course): Promise<TloSuggestion[]>
       }
     }
   });
-  return JSON.parse(response.text);
+  return JSON.parse(cleanJson(response.text));
 };

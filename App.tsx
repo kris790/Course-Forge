@@ -30,10 +30,15 @@ const App: React.FC = () => {
     setCourses(courses.map(c => c.id === updated.id ? updated : c));
   };
 
+  const handleNavigate = (newView: 'dashboard' | 'wizard') => {
+    setView(newView);
+    if (newView === 'dashboard') setSelectedCourseId(null);
+  };
+
   const selectedCourse = courses.find(c => c.id === selectedCourseId);
 
   return (
-    <Layout>
+    <Layout onNavigate={handleNavigate}>
       {view === 'dashboard' && (
         <Dashboard 
           courses={courses} 
