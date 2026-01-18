@@ -14,6 +14,16 @@ export interface CheckOnLearning {
   remediation?: string;
 }
 
+export interface SubSection {
+  id: string;
+  title: string;
+  type: 'ELO' | 'LSA';
+  script?: string;
+  slide?: Slide;
+  practicalExercise?: PracticalExercise;
+  isVerified: boolean;
+}
+
 export interface LearningStepActivity {
   title: string;
   timeMinutes: number;
@@ -21,7 +31,7 @@ export interface LearningStepActivity {
   description: string;
   practicalExercise?: PracticalExercise;
   checkOnLearning?: CheckOnLearning;
-  guidance?: string; // Step-by-step guidance for ELM
+  guidance?: string;
 }
 
 export interface EnablingObjective {
@@ -53,12 +63,12 @@ export interface TestItem {
   question: string;
   options?: string[];
   answer: string;
-  rubric?: string; // Specific to Short Answer Essay
+  rubric?: string;
   bloomLevel: 'K1' | 'K2' | 'K3' | 'K4';
 }
 
 export interface TestVersion {
-  versionType: 'Diagnostic' | 'Formative' | 'Summative';
+  versionType: 'Diagnostic' | 'Formative' | 'Summative' | 'A' | 'B' | 'C';
   purpose: string;
   items: TestItem[];
 }
@@ -70,23 +80,33 @@ export interface Slide {
   instructorNotes: string;
 }
 
+export type DevelopmentStage = 
+  | 'TLO_Generation' 
+  | 'ELO_LSA_Generation' 
+  | 'Outline_Verification' 
+  | 'Subsection_Development' 
+  | 'Section_COL' 
+  | 'Complete';
+
 export interface Lesson {
   id: string;
   title: string;
   durationHours: number;
   tlo?: TerminalObjective;
   elos: EnablingObjective[];
+  subSections: SubSection[];
+  checkOnLearningItems?: TestItem[]; // 3-4 questions at the end of the lesson
   slides?: Slide[];
   script?: string;
   armyRegulations?: string[];
-  // Lesson Plan Specifics
   scope?: string;
   prerequisites?: string;
   instructorQualifications?: string;
-  safetyConsiderations?: string;
   summary?: string;
-  media?: string;
-  ratio?: string;
+  referencesVerified?: boolean;
+  detectedReferences?: string[];
+  stage: DevelopmentStage;
+  currentSubSectionIndex: number;
 }
 
 export interface Course {
@@ -100,9 +120,9 @@ export interface Course {
   totalDuration: number;
   lessons: Lesson[];
   courseTests: {
-    diagnostic: TestVersion;
-    formative: TestVersion;
-    summative: TestVersion;
+    versionA: TestVersion;
+    versionB: TestVersion;
+    versionC: TestVersion;
   };
   references: string[];
   status: 'Draft' | 'Validated' | 'Accredited';
@@ -110,5 +130,3 @@ export interface Course {
   goldStandardExamples?: string;
   date?: string;
 }
-
-export type AddiePhase = 'Analysis' | 'Design' | 'Development' | 'Implementation' | 'Evaluation';

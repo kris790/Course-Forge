@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Course, Lesson, TloSuggestion } from "../types";
+import { Course, Lesson, TerminalObjective, EnablingObjective, SubSection, TestItem, TestVersion } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -8,87 +8,175 @@ const cleanJson = (text: string): string => {
   return text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
 };
 
-const COURSE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    title: { type: Type.STRING },
-    courseNumber: { type: Type.STRING },
-    schoolName: { type: Type.STRING },
-    description: { type: Type.STRING },
-    totalDuration: { type: Type.NUMBER },
-    references: { type: Type.ARRAY, items: { type: Type.STRING } },
-    lessons: {
-      type: Type.ARRAY,
-      items: {
+export const generateTLO = async (lessonTitle: string, refMaterial: string): Promise<TerminalObjective> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Act as a TRADOC Training Developer. Generate a Terminal Learning Objective (TLO) for the lesson: "${lessonTitle}". 
+    Use Bloom's Taxonomy Level 5 (Synthesis) or Level 6 (Evaluation) action verbs.
+    Reference Material: ${refMaterial}
+    BOLD all doctrinal references (e.g. **AR 27-10**).`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
         type: Type.OBJECT,
         properties: {
-          id: { type: Type.STRING },
-          title: { type: Type.STRING },
-          durationHours: { type: Type.NUMBER },
-          tlo: {
-            type: Type.OBJECT,
-            properties: {
-              action: { type: Type.STRING, description: "Bloom's Taxonomy Level 5 (Synthesis) or above action verb." },
-              condition: { type: Type.STRING },
-              standard: { type: Type.STRING }
-            },
-            required: ["action", "condition", "standard"]
-          },
-          elos: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: { id: { type: Type.STRING }, title: { type: Type.STRING } },
-              required: ["id", "title"]
-            }
-          }
+          action: { type: Type.STRING },
+          condition: { type: Type.STRING },
+          standard: { type: Type.STRING }
         },
-        required: ["id", "title", "durationHours", "tlo", "elos"]
+        required: ["action", "condition", "standard"]
       }
     }
-  },
-  required: ["title", "description", "totalDuration", "lessons", "references"]
+  });
+  return JSON.parse(cleanJson(response.text));
 };
 
-const TEST_ITEM_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    type: { 
-      type: Type.STRING, 
-      description: "One of: 'Multiple Choice', 'Complex Multiple Choice', 'Short Answer Essay', 'True/False', 'Fill in the Blank', 'Matching', 'Sequencing'" 
-    },
-    question: { type: Type.STRING },
-    options: { 
-      type: Type.ARRAY, 
-      items: { type: Type.STRING },
-      description: "Required for Multiple Choice, Complex Multiple Choice, True/False, Matching (format 'Left|Right'), and Sequencing."
-    },
-    answer: { 
-      type: Type.STRING, 
-      description: "The correct answer or solution key. For Matching, use '1-B, 2-A'. For Sequencing, use '1, 2, 3'." 
-    },
-    rubric: { 
-      type: Type.STRING, 
-      description: "MANDATORY for Short Answer Essay. Define 3-5 specific grading points/criteria." 
-    },
-    bloomLevel: { 
-      type: Type.STRING, 
-      description: "K1, K2, K3, or K4" 
+export const generateELOsAndLSAs = async (lesson: Lesson, refMaterial: string): Promise<EnablingObjective[]> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Generate Enabling Learning Objectives (ELOs) and Learning Step Activities (LSAs) for: "${lesson.title}".
+    TLO: ${JSON.stringify(lesson.tlo)}
+    Ref: ${refMaterial}
+    Use Bloom's verbs. BOLD all doctrinal references.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            title: { type: Type.STRING },
+            learningStepActivities: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  timeMinutes: { type: Type.NUMBER },
+                  method: { type: Type.STRING },
+                  description: { type: Type.STRING }
+                }
+              }
+            }
+          }
+        }
+      }
     }
-  },
-  required: ["type", "question", "answer", "bloomLevel", "rubric"]
+  });
+  return JSON.parse(cleanJson(response.text));
 };
 
-const TEST_VERSION_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    purpose: { type: Type.STRING },
-    items: {
-      type: Type.ARRAY,
-      items: TEST_ITEM_SCHEMA
+export const generateSubSectionContent = async (subSection: SubSection, lesson: Lesson, refMaterial: string): Promise<Partial<SubSection>> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Develop instructional content for Subsection: "${subSection.title}".
+    Part of Lesson: "${lesson.title}"
+    Ref Material: ${refMaterial}
+
+    MANDATORY:
+    1. BOLD all doctrinal references (e.g. **AR 27-10**).
+    2. Provide an instructor script.
+    3. Provide one corresponding slide.
+    4. Provide a Practical Exercise (PE) with steps and scoring criteria.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          script: { type: Type.STRING },
+          slide: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+              instructorNotes: { type: Type.STRING }
+            }
+          },
+          practicalExercise: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              type: { type: Type.STRING },
+              description: { type: Type.STRING },
+              steps: { type: Type.ARRAY, items: { type: Type.STRING } },
+              scoringCriteria: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
+          }
+        }
+      }
     }
-  },
-  required: ["purpose", "items"]
+  });
+  return JSON.parse(cleanJson(response.text));
+};
+
+export const generateSectionCOL = async (lesson: Lesson, refMaterial: string): Promise<TestItem[]> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Generate 4 Check on Learning (COL) questions for the completed lesson: "${lesson.title}".
+    Based on the following TLO/ELOs: ${JSON.stringify(lesson.tlo)}
+    BOLD references. Include various question types.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            type: { type: Type.STRING },
+            question: { type: Type.STRING },
+            options: { type: Type.ARRAY, items: { type: Type.STRING } },
+            answer: { type: Type.STRING },
+            bloomLevel: { type: Type.STRING }
+          }
+        }
+      }
+    }
+  });
+  return JSON.parse(cleanJson(response.text));
+};
+
+export const generateThreeExamVersions = async (course: Course): Promise<{ versionA: TestVersion, versionB: TestVersion, versionC: TestVersion }> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Generate three versions (A, B, and C) of a final exam for the course: "${course.title}".
+    Each version must cover the same objectives but use different questions to allow for retesting.
+    BOLD references.
+    Each test needs 10 questions.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          versionA: { type: Type.OBJECT, properties: { purpose: { type: Type.STRING }, items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { type: { type: Type.STRING }, question: { type: Type.STRING }, answer: { type: Type.STRING } } } } } },
+          versionB: { type: Type.OBJECT, properties: { purpose: { type: Type.STRING }, items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { type: { type: Type.STRING }, question: { type: Type.STRING }, answer: { type: Type.STRING } } } } } },
+          versionC: { type: Type.OBJECT, properties: { purpose: { type: Type.STRING }, items: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { type: { type: Type.STRING }, question: { type: Type.STRING }, answer: { type: Type.STRING } } } } } }
+        }
+      }
+    }
+  });
+  return JSON.parse(cleanJson(response.text));
+};
+
+export const extractContentFromSlides = async (images: { data: string, mimeType: string }[]): Promise<string> => {
+  const parts = images.map(img => ({
+    inlineData: {
+      data: img.data.split(',')[1],
+      mimeType: img.mimeType
+    }
+  }));
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: {
+      parts: [
+        ...parts,
+        { text: "Extract all instructional content from these slide images. BOLD doctrinal references." }
+      ]
+    }
+  });
+
+  return response.text || "";
 };
 
 export const generateCourseStructure = async (
@@ -99,125 +187,25 @@ export const generateCourseStructure = async (
   keyTasks?: string,
   goldStandardExamples?: string
 ): Promise<Partial<Course>> => {
-  const taskPrompt = keyTasks ? `\n\nCORE TASKS/SKILLS TO COVER (MANDATORY):\n${keyTasks}` : '';
-  const referencePrompt = referenceMaterial ? `\n\nREFERENCE DATA:\n${referenceMaterial}` : '';
-  const stylePrompt = goldStandardExamples ? `\n\nGOLD STANDARD STYLE GUIDE (FOLLOW THIS STRUCTURE/TONE):\n${goldStandardExamples}` : '';
-
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Generate a US Army POI structure for Senior Paralegals at TJAGLCS. 
-    Topic: "${topic}". MOS: ${mos}. Target Duration: ${duration} hours. 
-    
-    GUIDANCE: 
-    The user has already completed the Task Analysis. Use the provided "CORE TASKS/SKILLS" as the absolute foundation for the lesson modules. Each lesson should map back to one or more of these tasks.${taskPrompt}${referencePrompt}${stylePrompt}
-    
-    Action verbs for TLOs MUST be Bloom's Taxonomy Level 5 or 6.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: COURSE_SCHEMA,
-      thinkingConfig: { thinkingBudget: 2000 }
-    }
-  });
-  return JSON.parse(cleanJson(response.text));
-};
-
-export const generateLessonDetails = async (
-  courseTitle: string, 
-  lesson: Lesson, 
-  referenceMaterial?: string,
-  goldStandardExamples?: string
-): Promise<any> => {
-  const referencePrompt = referenceMaterial ? `\n\nREFERENCE SOURCE:\n${referenceMaterial}` : '';
-  const stylePrompt = goldStandardExamples ? `\n\nGOLD STANDARD EXAMPLE (MIMIC THIS EXACT FORMAT AND DEPTH):\n${goldStandardExamples}` : '';
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: `Develop a TJAGLCS Lesson Plan for Senior Paralegals for: "${lesson.title}". 
-    
-    REQUIRED:
-    1. Experiential Learning Model (ELM) flow for LSAs.
-    2. Word-for-word instructor script with [SHOW SLIDE X] markers.
-    3. Step-by-step guidance for every activity.
-    4. Scope, Prerequisites, and Special Instructor Qualifications.${referencePrompt}${stylePrompt}`,
+    contents: `Generate a POI skeleton for: "${topic}". BOLD references.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          scope: { type: Type.STRING },
-          prerequisites: { type: Type.STRING },
-          instructorQualifications: { type: Type.STRING },
-          safetyConsiderations: { type: Type.STRING },
-          summary: { type: Type.STRING },
-          media: { type: Type.STRING },
-          ratio: { type: Type.STRING },
-          script: { type: Type.STRING },
-          armyRegulations: { type: Type.ARRAY, items: { type: Type.STRING } },
-          elos: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, learningStepActivities: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, timeMinutes: { type: Type.NUMBER }, method: { type: Type.STRING }, description: { type: Type.STRING }, guidance: { type: Type.STRING } } } } } } },
-          slides: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, title: { type: Type.STRING }, bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } }, instructorNotes: { type: Type.STRING } } } }
-        }
-      },
-      thinkingConfig: { thinkingBudget: 4000 }
-    }
-  });
-  return JSON.parse(cleanJson(response.text));
-};
-
-export const generateCourseTests = async (course: Course): Promise<any> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: `Generate three versions of a test (Diagnostic, Formative, Summative) for the course: "${course.title}".
-    
-    MANDATORY: Each test version MUST include a balanced mix of:
-    - Multiple Choice
-    - Complex Multiple Choice (Select all that apply)
-    - Short Answer Essay (YOU MUST INCLUDE A DETAILED GRADING RUBRIC WITH AT LEAST 3-5 SPECIFIC EVALUATION POINTS)
-    - Matching (Column A to Column B)
-    - Sequencing (Procedural ordering)
-    - True/False
-    - Fill in the Blank
-    
-    Ensure questions align with MOS ${course.mos} standards and the course references. Every Short Answer Essay question MUST have a "rubric" field populated.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          diagnostic: TEST_VERSION_SCHEMA,
-          formative: TEST_VERSION_SCHEMA,
-          summative: TEST_VERSION_SCHEMA
-        },
-        required: ["diagnostic", "formative", "summative"]
-      },
-      thinkingConfig: { thinkingBudget: 8000 }
-    }
-  });
-  return JSON.parse(cleanJson(response.text));
-};
-
-export const reviewCourseTlos = async (course: Course): Promise<TloSuggestion[]> => {
-  const lessonsData = course.lessons.map(l => ({
-    id: l.id,
-    title: l.title,
-    tlo: l.tlo
-  }));
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: `Review TLOs for ${course.title}. Bloom's Level 5-6 Action verbs, specific conditions, measurable standards.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            lessonId: { type: Type.STRING },
-            lessonTitle: { type: Type.STRING },
-            suggestedAction: { type: Type.STRING },
-            suggestedCondition: { type: Type.STRING },
-            suggestedStandard: { type: Type.STRING },
-            reasoning: { type: Type.STRING }
+          title: { type: Type.STRING },
+          lessons: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                title: { type: Type.STRING },
+                durationHours: { type: Type.NUMBER }
+              }
+            }
           }
         }
       }

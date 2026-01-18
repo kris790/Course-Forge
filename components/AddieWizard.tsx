@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Course, Lesson, TerminalObjective as TLO } from '../types';
+import { Course, Lesson, TerminalObjective as TLO, DevelopmentStage } from '../types';
 import { generateCourseStructure } from '../services/geminiService';
 import ReferenceMaterialUpload from './ReferenceMaterialUpload';
 
@@ -39,7 +39,9 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
         formData.keyTasks,
         formData.goldStandardExamples
       );
-      if (structure.lessons) setLessons(structure.lessons);
+      if (structure.lessons) {
+        setLessons(structure.lessons.map(l => ({ ...l, stage: 'Objectives' as DevelopmentStage })));
+      }
       if (structure.references) setReferences(structure.references);
       setStep('Architecture');
     } catch (error) {
@@ -56,7 +58,8 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
       title: 'New Lesson',
       durationHours: 1,
       tlo: { action: '', condition: '', standard: '' },
-      elos: []
+      elos: [],
+      stage: 'Objectives' as DevelopmentStage
     };
     setLessons([...lessons, newLesson]);
   };
@@ -100,6 +103,7 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
         title: l.title || '',
         durationHours: l.durationHours || 0,
         tlo: l.tlo,
+        stage: l.stage || 'Objectives',
         elos: (l.elos || []).map((elo: any) => ({
           id: elo.id || Math.random().toString(36).substr(2, 4),
           title: elo.title || '',
@@ -136,7 +140,7 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-4 items-center">
               <span className="text-xl">⚡</span>
               <p className="text-xs text-blue-800 font-medium">
-                <strong>Advanced Prompting Enabled:</strong> Provide both doctrinal references and high-quality "Gold Standard" examples to guide the AI's output.
+                <strong>Sequential Workflow Enabled:</strong> Complete objectives, activities, and content sections one at a time for doctrinal accuracy.
               </p>
             </div>
 
@@ -188,13 +192,11 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-slate-400">1. Reference Material (Doctrinal Sources)</label>
                   <ReferenceMaterialUpload value={formData.referenceMaterial} onChange={(val) => setFormData(prev => ({ ...prev, referenceMaterial: val }))} />
-                  <p className="text-[9px] text-slate-400 italic">This is the "What": Army Regulations, FMs, and technical data.</p>
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-emerald-600">2. Gold Standard Examples (Style Guide)</label>
-                  <ReferenceMaterialUpload value={formData.goldStandardExamples} onChange={(val) => setFormData(prev => ({ ...prev, goldStandardExamples: val }))} />
-                  <p className="text-[9px] text-emerald-600 italic font-bold">This is the "How": Provide a high-quality example of the final product you want.</p>
+                  <ReferenceMaterialUpload value={formData.goldStandardExamples} onChange={(val) => setFormData(prev => ({ ...prev, goldStandardExamples: val }))} isGoldStandard />
                 </div>
               </div>
             </div>
