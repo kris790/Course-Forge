@@ -1,5 +1,4 @@
 
-
 export interface PracticalExercise {
   id: string;
   title: string;
@@ -14,7 +13,7 @@ export interface SubSection {
   title: string;
   type: 'ELO' | 'LSA';
   script?: string;
-  slide?: Slide;
+  slides?: Slide[];
   practicalExercise?: PracticalExercise;
   isVerified: boolean;
 }
@@ -24,7 +23,6 @@ export interface LearningStepActivity {
   timeMinutes: number;
   method: 'Lecture' | 'Practical Exercise' | 'Discussion' | 'Demonstration' | 'Role Play';
   description: string;
-  // Added missing properties identified by component usage
   practicalExercise?: PracticalExercise;
   checkOnLearning?: TestItem;
   guidance?: string;
@@ -65,10 +63,11 @@ export interface Slide {
   title: string;
   bulletPoints: string[];
   instructorNotes: string;
+  layoutType?: 'title' | 'content' | 'comparison' | 'summary' | 'exercise';
 }
 
 export type DevelopmentStage = 
-  | 'Objectives' // Initial state
+  | 'Objectives' 
   | 'TLO_Generation' 
   | 'ELO_LSA_Generation' 
   | 'Outline_Verification' 
@@ -87,7 +86,6 @@ export interface Lesson {
   stage: DevelopmentStage;
   currentSubSectionIndex: number;
   referencesVerified?: boolean;
-  // Added missing properties identified by component usage
   armyRegulations?: string[];
   script?: string;
   scope?: string;
@@ -112,7 +110,6 @@ export interface Course {
     versionA: TestVersion;
     versionB: TestVersion;
     versionC: TestVersion;
-    // Added for wizard and TSP compatibility
     diagnostic?: TestVersion;
     formative?: TestVersion;
     summative?: TestVersion;
@@ -124,7 +121,6 @@ export interface Course {
   date?: string;
 }
 
-// Added missing interface used in TloReviewer
 export interface TloSuggestion {
   lessonId: string;
   lessonTitle: string;

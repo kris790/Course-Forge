@@ -1,7 +1,6 @@
 
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { Course, Lesson, TerminalObjective, EnablingObjective, SubSection, TestItem, TestVersion } from "../types";
+import { Course, Lesson, TerminalObjective, EnablingObjective, SubSection, TestItem, TestVersion, Slide } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -85,9 +84,9 @@ export const generateSubSectionContent = async (subSection: SubSection, lesson: 
     TLO Context: ${JSON.stringify(lesson.tlo)}
 
     REQUIREMENTS:
-    1. BOLD all doctrinal references (e.g. **AR 600-20**) in both the script and the slide.
+    1. BOLD all doctrinal references (e.g. **AR 600-20**) in both the script and the slides.
     2. Provide a narrative instructor script with [SHOW SLIDE] markers.
-    3. Provide one detailed instructional slide.
+    3. Provide 2-3 detailed instructional slides with layout types.
     4. Provide a mandatory Practical Exercise (PE) for this subsection with steps and scoring criteria.
     5. Ensure all text taken from regs is referenced and bolded.
 
@@ -98,12 +97,17 @@ export const generateSubSectionContent = async (subSection: SubSection, lesson: 
         type: Type.OBJECT,
         properties: {
           script: { type: Type.STRING },
-          slide: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
-              instructorNotes: { type: Type.STRING }
+          slides: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                id: { type: Type.STRING },
+                title: { type: Type.STRING },
+                bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+                instructorNotes: { type: Type.STRING },
+                layoutType: { type: Type.STRING, description: "title, content, comparison, summary, or exercise" }
+              }
             }
           },
           practicalExercise: {
@@ -119,6 +123,43 @@ export const generateSubSectionContent = async (subSection: SubSection, lesson: 
         }
       },
       thinkingConfig: { thinkingBudget: 8000 }
+    }
+  });
+  return JSON.parse(cleanJson(response.text));
+};
+
+export const generateLessonSlideDeck = async (lesson: Lesson, refMaterial: string): Promise<Slide[]> => {
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: `Forge a complete professional slide deck for Lesson: "${lesson.title}".
+    Context:
+    - TLO: ${JSON.stringify(lesson.tlo)}
+    - ELOs: ${JSON.stringify(lesson.elos)}
+    
+    Structure the deck as follows:
+    1. Title Slide (Lesson overview)
+    2. TLO Slide (Action, Condition, Standard)
+    3. 3-5 Content Slides (Covering ELOs)
+    4. Practical Exercise Slide
+    5. Summary / Check on Learning Slide
+    
+    BOLD all regulatory references. Ensure slides are visually dense but clear.`,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            id: { type: Type.STRING },
+            title: { type: Type.STRING },
+            bulletPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
+            instructorNotes: { type: Type.STRING },
+            layoutType: { type: Type.STRING }
+          }
+        }
+      },
+      thinkingConfig: { thinkingBudget: 12000 }
     }
   });
   return JSON.parse(cleanJson(response.text));
@@ -155,7 +196,6 @@ export const generateThreeExamVersions = async (course: Course): Promise<{ versi
     model: 'gemini-3-pro-preview',
     contents: `Create three distinct versions (A, B, and C) of a comprehensive final examination for: "${course.title}".
     Each version must test the same core competencies but with different scenarios and questions.
-    This allows for retesting failed students and identifying specific retraining needs.
     BOLD all doctrinal references. 10 questions per test.`,
     config: {
       responseMimeType: "application/json",
@@ -191,7 +231,6 @@ export const generateThreeExamVersions = async (course: Course): Promise<{ versi
   return JSON.parse(cleanJson(response.text));
 };
 
-// Updated signature to handle extra parameters from AddieWizard
 export const generateCourseStructure = async (
   mos: string, 
   topic: string, 

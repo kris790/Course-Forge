@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { Course, Lesson, SubSection, TestItem, TestVersion } from '../types';
+import { Course, Lesson, SubSection, Slide } from '../types';
 import { 
   generateTLO, 
   generateELOsAndLSAs, 
   generateSubSectionContent, 
   generateSectionCOL, 
-  generateThreeExamVersions 
+  generateThreeExamVersions,
+  generateLessonSlideDeck
 } from '../services/geminiService';
 import SlideViewer from './SlideViewer';
 import ExerciseCard from './ExerciseCard';
@@ -85,6 +86,19 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
       updateLessonInCourse(selectedLesson.id, { subSections: updatedSubs });
     } catch (e) {
       alert("Error developing subsection.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgeLessonDeck = async () => {
+    if (!selectedLesson) return;
+    setLoading(true);
+    try {
+      const slides = await generateLessonSlideDeck(selectedLesson, course.referenceMaterial || '');
+      updateLessonInCourse(selectedLesson.id, { slides });
+    } catch (e) {
+      alert("Error forging lesson slide deck.");
     } finally {
       setLoading(false);
     }
@@ -257,7 +271,14 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
                   <h4 className="text-lg font-black text-slate-900 uppercase">{currentSub.title}</h4>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-4">
+                 <button 
+                  onClick={handleForgeLessonDeck} 
+                  disabled={loading}
+                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+                 >
+                   {loading ? 'Forging...' : '✨ Forge Full Lesson Deck'}
+                 </button>
                  <div className="h-1.5 w-32 bg-slate-100 rounded-full overflow-hidden">
                     <div 
                         className="h-full bg-emerald-500 transition-all duration-700" 
@@ -267,15 +288,17 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
               </div>
             </div>
 
-            {currentSub.script ? (
+            {currentSub.script || selectedLesson.slides?.length ? (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 <div className="space-y-6">
-                  <div className="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm font-serif relative">
-                    <div className="absolute top-0 right-10 -translate-y-1/2 bg-slate-900 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
-                        Instructor Guide
+                  {currentSub.script && (
+                    <div className="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm font-serif relative">
+                      <div className="absolute top-0 right-10 -translate-y-1/2 bg-slate-900 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
+                          Instructor Guide
+                      </div>
+                      <div className="text-base leading-relaxed whitespace-pre-wrap text-slate-800" dangerouslySetInnerHTML={{ __html: currentSub.script.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') }} />
                     </div>
-                    <div className="text-base leading-relaxed whitespace-pre-wrap text-slate-800" dangerouslySetInnerHTML={{ __html: currentSub.script.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>') }} />
-                  </div>
+                  )}
                   {currentSub.practicalExercise && (
                     <ExerciseCard exercise={currentSub.practicalExercise} />
                   )}
@@ -290,7 +313,7 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
                 </div>
                 <div className="sticky top-8 space-y-4">
                   <div className="bg-slate-900 text-white px-4 py-2 rounded-t-xl text-[9px] font-black uppercase tracking-[0.3em] text-center">Instructional Visual Material</div>
-                  {currentSub.slide && <SlideViewer slides={[currentSub.slide]} />}
+                  <SlideViewer slides={currentSub.slides || selectedLesson.slides || []} />
                 </div>
               </div>
             ) : (
@@ -298,7 +321,7 @@ const CoursePreview: React.FC<CoursePreviewProps> = ({ course, onUpdateCourse, o
                 <div className="text-5xl opacity-40">⚒️</div>
                 <div>
                     <h5 className="text-2xl font-black text-slate-400 uppercase tracking-tight">Subsection Materials Forge</h5>
-                    <p className="text-slate-400 text-sm mt-2 font-medium">Click to generate full Script, Slide, and Practical Exercise for this objective.</p>
+                    <p className="text-slate-400 text-sm mt-2 font-medium">Click to generate full Script, Slides, and Practical Exercise for this objective.</p>
                 </div>
                 <button onClick={handleDevelopSubSection} disabled={loading} className="bg-amber-600 text-white px-12 py-5 rounded-2xl font-black uppercase shadow-2xl shadow-amber-600/40 hover:bg-amber-700 transition-all active:scale-95 text-lg">
                   {loading ? 'Synthesizing Content...' : 'Forge Materials'}

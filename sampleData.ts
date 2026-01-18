@@ -27,7 +27,8 @@ export const SAMPLE_COURSE: Course = {
           type: 'LSA',
           isVerified: true,
           script: 'Welcome to the Ethical Oversight module. **AR 27-10** requires...',
-          slide: { id: 's1', title: 'Ethics Board', bulletPoints: ['Ref AR 27-10', 'Conflict Analysis'], instructorNotes: 'Focus on case law.' }
+          // Fix: Rename 'slide' to 'slides' and wrap the slide object in an array to comply with the SubSection interface
+          slides: [{ id: 's1', title: 'Ethics Board', bulletPoints: ['Ref AR 27-10', 'Conflict Analysis'], instructorNotes: 'Focus on case law.' }]
         }
       ],
       elos: [],
