@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import AddieWizard from './components/AddieWizard';
 import CoursePreview from './components/CoursePreview';
 import { Course } from './types';
+import { SAMPLE_COURSE } from './sampleData';
 
 const App: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -13,11 +13,19 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const saved = localStorage.getItem('army_courses_v2');
-    if (saved) setCourses(JSON.parse(saved));
+    if (saved) {
+      setCourses(JSON.parse(saved));
+    } else {
+      // Inject sample course for new users
+      setCourses([SAMPLE_COURSE]);
+      localStorage.setItem('army_courses_v2', JSON.stringify([SAMPLE_COURSE]));
+    }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('army_courses_v2', JSON.stringify(courses));
+    if (courses.length > 0) {
+      localStorage.setItem('army_courses_v2', JSON.stringify(courses));
+    }
   }, [courses]);
 
   const handleCourseCreated = (newCourse: Course) => {

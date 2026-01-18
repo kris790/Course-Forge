@@ -55,28 +55,28 @@ const TEST_ITEM_SCHEMA = {
   properties: {
     type: { 
       type: Type.STRING, 
-      description: "One of: 'Multiple Choice', 'Complex Multiple Choice', 'Short Answer Essay', 'True/False', 'Fill in the Blank'" 
+      description: "One of: 'Multiple Choice', 'Complex Multiple Choice', 'Short Answer Essay', 'True/False', 'Fill in the Blank', 'Matching', 'Sequencing'" 
     },
     question: { type: Type.STRING },
     options: { 
       type: Type.ARRAY, 
       items: { type: Type.STRING },
-      description: "Required for Multiple Choice, Complex Multiple Choice, and True/False."
+      description: "Required for Multiple Choice, Complex Multiple Choice, True/False, Matching (format 'Left|Right'), and Sequencing."
     },
     answer: { 
       type: Type.STRING, 
-      description: "The correct answer or solution key." 
+      description: "The correct answer or solution key. For Matching, use '1-B, 2-A'. For Sequencing, use '1, 2, 3'." 
     },
     rubric: { 
       type: Type.STRING, 
-      description: "Required for Short Answer Essay. Define 3-5 specific grading points." 
+      description: "MANDATORY for Short Answer Essay. Define 3-5 specific grading points/criteria." 
     },
     bloomLevel: { 
       type: Type.STRING, 
       description: "K1, K2, K3, or K4" 
     }
   },
-  required: ["type", "question", "answer", "bloomLevel"]
+  required: ["type", "question", "answer", "bloomLevel", "rubric"]
 };
 
 const TEST_VERSION_SCHEMA = {
@@ -96,10 +96,12 @@ export const generateCourseStructure = async (
   topic: string, 
   duration: number, 
   referenceMaterial?: string,
-  keyTasks?: string
+  keyTasks?: string,
+  goldStandardExamples?: string
 ): Promise<Partial<Course>> => {
   const taskPrompt = keyTasks ? `\n\nCORE TASKS/SKILLS TO COVER (MANDATORY):\n${keyTasks}` : '';
   const referencePrompt = referenceMaterial ? `\n\nREFERENCE DATA:\n${referenceMaterial}` : '';
+  const stylePrompt = goldStandardExamples ? `\n\nGOLD STANDARD STYLE GUIDE (FOLLOW THIS STRUCTURE/TONE):\n${goldStandardExamples}` : '';
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
@@ -107,7 +109,7 @@ export const generateCourseStructure = async (
     Topic: "${topic}". MOS: ${mos}. Target Duration: ${duration} hours. 
     
     GUIDANCE: 
-    The user has already completed the Task Analysis. Use the provided "CORE TASKS/SKILLS" as the absolute foundation for the lesson modules. Each lesson should map back to one or more of these tasks.${taskPrompt}${referencePrompt}
+    The user has already completed the Task Analysis. Use the provided "CORE TASKS/SKILLS" as the absolute foundation for the lesson modules. Each lesson should map back to one or more of these tasks.${taskPrompt}${referencePrompt}${stylePrompt}
     
     Action verbs for TLOs MUST be Bloom's Taxonomy Level 5 or 6.`,
     config: {
@@ -119,8 +121,15 @@ export const generateCourseStructure = async (
   return JSON.parse(cleanJson(response.text));
 };
 
-export const generateLessonDetails = async (courseTitle: string, lesson: Lesson, referenceMaterial?: string): Promise<any> => {
+export const generateLessonDetails = async (
+  courseTitle: string, 
+  lesson: Lesson, 
+  referenceMaterial?: string,
+  goldStandardExamples?: string
+): Promise<any> => {
   const referencePrompt = referenceMaterial ? `\n\nREFERENCE SOURCE:\n${referenceMaterial}` : '';
+  const stylePrompt = goldStandardExamples ? `\n\nGOLD STANDARD EXAMPLE (MIMIC THIS EXACT FORMAT AND DEPTH):\n${goldStandardExamples}` : '';
+
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: `Develop a TJAGLCS Lesson Plan for Senior Paralegals for: "${lesson.title}". 
@@ -129,7 +138,7 @@ export const generateLessonDetails = async (courseTitle: string, lesson: Lesson,
     1. Experiential Learning Model (ELM) flow for LSAs.
     2. Word-for-word instructor script with [SHOW SLIDE X] markers.
     3. Step-by-step guidance for every activity.
-    4. Scope, Prerequisites, and Special Instructor Qualifications.${referencePrompt}`,
+    4. Scope, Prerequisites, and Special Instructor Qualifications.${referencePrompt}${stylePrompt}`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -162,11 +171,13 @@ export const generateCourseTests = async (course: Course): Promise<any> => {
     MANDATORY: Each test version MUST include a balanced mix of:
     - Multiple Choice
     - Complex Multiple Choice (Select all that apply)
-    - Short Answer Essay (Include a clear grading RUBRIC)
+    - Short Answer Essay (YOU MUST INCLUDE A DETAILED GRADING RUBRIC WITH AT LEAST 3-5 SPECIFIC EVALUATION POINTS)
+    - Matching (Column A to Column B)
+    - Sequencing (Procedural ordering)
     - True/False
     - Fill in the Blank
     
-    Ensure questions align with MOS ${course.mos} standards and the course references.`,
+    Ensure questions align with MOS ${course.mos} standards and the course references. Every Short Answer Essay question MUST have a "rubric" field populated.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {

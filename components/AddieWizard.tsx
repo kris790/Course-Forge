@@ -18,10 +18,11 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
   const [formData, setFormData] = useState({
     mos: '27D',
     topic: 'Administrative Law & Separation Boards',
-    keyTasks: '', // New Field: Identified skills/tasks
+    keyTasks: '',
     audience: 'Senior Paralegal (E5-E7)',
     duration: 8,
     referenceMaterial: '',
+    goldStandardExamples: '',
     courseNumber: 'TJAGLCS-2026-001',
     schoolName: 'The Judge Advocate General Legal Center and School',
     date: new Date().toISOString().split('T')[0]
@@ -35,7 +36,8 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
         formData.topic, 
         formData.duration,
         formData.referenceMaterial,
-        formData.keyTasks
+        formData.keyTasks,
+        formData.goldStandardExamples
       );
       if (structure.lessons) setLessons(structure.lessons);
       if (structure.references) setReferences(structure.references);
@@ -90,6 +92,7 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
       audience: formData.audience,
       totalDuration: lessons.reduce((acc, curr) => acc + (curr.durationHours || 0), 0),
       referenceMaterial: formData.referenceMaterial,
+      goldStandardExamples: formData.goldStandardExamples,
       references: references,
       date: formData.date,
       lessons: lessons.map((l: any) => ({
@@ -133,7 +136,7 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-4 items-center">
               <span className="text-xl">⚡</span>
               <p className="text-xs text-blue-800 font-medium">
-                <strong>Streamlined Path Enabled:</strong> We'll skip deep analysis and jump straight into instructional design using your provided tasks.
+                <strong>Advanced Prompting Enabled:</strong> Provide both doctrinal references and high-quality "Gold Standard" examples to guide the AI's output.
               </p>
             </div>
 
@@ -170,31 +173,28 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Identified Tasks/Skills (Already Analyzed)</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400">Identified Tasks/Skills (Analyzed)</label>
                   <textarea 
-                    placeholder="List specific Army tasks or skills you want this course to address..."
+                    placeholder="List specific Army tasks or skills..."
                     rows={4}
                     value={formData.keyTasks} 
                     onChange={(e) => setFormData({...formData, keyTasks: e.target.value})} 
                     className="w-full border border-slate-200 p-4 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 transition-all bg-white shadow-inner text-sm font-medium" 
                   />
-                  <p className="text-[9px] text-slate-400 italic">These will be used to automatically define your ELAs and LSAs.</p>
                 </div>
               </div>
 
-              <div className="space-y-6">
-                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Proponent School</label>
-                  <input 
-                    type="text" 
-                    value={formData.schoolName} 
-                    onChange={(e) => setFormData({...formData, schoolName: e.target.value})} 
-                    className="w-full border border-slate-200 p-3 rounded-xl outline-none focus:ring-2 focus:ring-amber-500 transition-all bg-slate-50" 
-                  />
-                </div>
+              <div className="space-y-8">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Reference Material (Optional)</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400">1. Reference Material (Doctrinal Sources)</label>
                   <ReferenceMaterialUpload value={formData.referenceMaterial} onChange={(val) => setFormData(prev => ({ ...prev, referenceMaterial: val }))} />
+                  <p className="text-[9px] text-slate-400 italic">This is the "What": Army Regulations, FMs, and technical data.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-emerald-600">2. Gold Standard Examples (Style Guide)</label>
+                  <ReferenceMaterialUpload value={formData.goldStandardExamples} onChange={(val) => setFormData(prev => ({ ...prev, goldStandardExamples: val }))} />
+                  <p className="text-[9px] text-emerald-600 italic font-bold">This is the "How": Provide a high-quality example of the final product you want.</p>
                 </div>
               </div>
             </div>

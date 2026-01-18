@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Course, Lesson } from '../types';
 
@@ -219,6 +218,42 @@ const TrainingSupportPackage: React.FC<TrainingSupportPackageProps> = ({ course 
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Lesson Plans Section */}
+      <div className="bg-white p-10 border border-slate-200 shadow-sm rounded-xl font-serif">
+        <h3 className="text-xl font-black text-slate-900 uppercase mb-6 border-b-2 border-slate-900 pb-2">Section V. Lesson Plans</h3>
+        <p className="text-sm text-slate-500 mb-8 italic">Master Terminal Learning Objectives (TLO) for each module.</p>
+        
+        <div className="space-y-12">
+          {course.lessons.map((lesson, lIdx) => (
+            <div key={lesson.id} className="space-y-6 pb-10 border-b border-slate-100 last:border-0">
+              <div className="flex items-center gap-4">
+                <span className="bg-slate-900 text-white text-xs font-black px-3 py-1 rounded">Module {lIdx + 1}</span>
+                <h4 className="text-xl font-bold text-slate-900 underline underline-offset-8 decoration-amber-500/50">{lesson.title}</h4>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl space-y-4 shadow-inner">
+                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2">Terminal Learning Objective</h5>
+                
+                <div className="space-y-3 text-sm leading-relaxed">
+                  <div>
+                    <span className="font-black text-slate-900 uppercase text-[11px] w-24 inline-block">Action:</span>
+                    <span className="text-slate-800">{lesson.tlo?.action || "TBD"}</span>
+                  </div>
+                  <div>
+                    <span className="font-black text-slate-900 uppercase text-[11px] w-24 inline-block">Condition:</span>
+                    <span className="text-slate-800">{lesson.tlo?.condition || "In a classroom environment with standard technical references."}</span>
+                  </div>
+                  <div>
+                    <span className="font-black text-slate-900 uppercase text-[11px] w-24 inline-block">Standard:</span>
+                    <span className="text-slate-800">{lesson.tlo?.standard || "Perform task to 100% accuracy in accordance with AR standards."}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

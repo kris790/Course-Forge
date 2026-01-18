@@ -45,7 +45,7 @@ export interface TloSuggestion {
   reasoning: string;
 }
 
-export type TestItemType = 'Multiple Choice' | 'Complex Multiple Choice' | 'Short Answer Essay' | 'True/False' | 'Fill in the Blank';
+export type TestItemType = 'Multiple Choice' | 'Complex Multiple Choice' | 'Short Answer Essay' | 'True/False' | 'Fill in the Blank' | 'Matching' | 'Sequencing';
 
 export interface TestItem {
   id?: string;
@@ -107,6 +107,7 @@ export interface Course {
   references: string[];
   status: 'Draft' | 'Validated' | 'Accredited';
   referenceMaterial?: string;
+  goldStandardExamples?: string;
   date?: string;
 }
 
