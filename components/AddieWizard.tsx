@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Course, Lesson, TerminalObjective as TLO, DevelopmentStage } from '../types';
 import { generateCourseStructure } from '../services/geminiService';
@@ -28,6 +29,7 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
     date: new Date().toISOString().split('T')[0]
   });
 
+  // Fixed: generateCourseStructure signature now matches call in geminiService.ts
   const handleGenerateArchitecture = async () => {
     setLoading(true);
     try {
@@ -98,6 +100,7 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
       goldStandardExamples: formData.goldStandardExamples,
       references: references,
       date: formData.date,
+      // Fixed: Lesson mapping to include required subSections and currentSubSectionIndex
       lessons: lessons.map((l: any) => ({
         id: l.id || Math.random().toString(36).substr(2, 5),
         title: l.title || '',
@@ -109,9 +112,15 @@ const AddieWizard: React.FC<AddieWizardProps> = ({ onCourseCreated, onCancel }) 
           title: elo.title || '',
           learningStepActivities: elo.learningStepActivities || []
         })),
+        subSections: [],
+        currentSubSectionIndex: 0,
         slides: l.slides || []
       })) as Lesson[],
+      // Fixed: courseTests initialization to match Course interface and use valid types
       courseTests: { 
+        versionA: { versionType: 'A', purpose: 'Primary Assessment', items: [] }, 
+        versionB: { versionType: 'B', purpose: 'Alternative Assessment', items: [] }, 
+        versionC: { versionType: 'C', purpose: 'Alternative Assessment', items: [] },
         diagnostic: { versionType: 'Diagnostic', purpose: 'Assess prerequisite knowledge', items: [] }, 
         formative: { versionType: 'Formative', purpose: 'Monitor progress during learning', items: [] }, 
         summative: { versionType: 'Summative', purpose: 'Final proficiency validation', items: [] } 

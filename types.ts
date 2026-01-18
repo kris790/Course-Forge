@@ -1,4 +1,5 @@
 
+
 export interface PracticalExercise {
   id: string;
   title: string;
@@ -6,12 +7,6 @@ export interface PracticalExercise {
   description: string;
   steps: string[];
   scoringCriteria: string[];
-}
-
-export interface CheckOnLearning {
-  question: string;
-  answer: string;
-  remediation?: string;
 }
 
 export interface SubSection {
@@ -29,8 +24,9 @@ export interface LearningStepActivity {
   timeMinutes: number;
   method: 'Lecture' | 'Practical Exercise' | 'Discussion' | 'Demonstration' | 'Role Play';
   description: string;
+  // Added missing properties identified by component usage
   practicalExercise?: PracticalExercise;
-  checkOnLearning?: CheckOnLearning;
+  checkOnLearning?: TestItem;
   guidance?: string;
 }
 
@@ -46,15 +42,6 @@ export interface TerminalObjective {
   standard: string;
 }
 
-export interface TloSuggestion {
-  lessonId: string;
-  lessonTitle: string;
-  suggestedAction: string;
-  suggestedCondition: string;
-  suggestedStandard: string;
-  reasoning: string;
-}
-
 export type TestItemType = 'Multiple Choice' | 'Complex Multiple Choice' | 'Short Answer Essay' | 'True/False' | 'Fill in the Blank' | 'Matching' | 'Sequencing';
 
 export interface TestItem {
@@ -68,7 +55,7 @@ export interface TestItem {
 }
 
 export interface TestVersion {
-  versionType: 'Diagnostic' | 'Formative' | 'Summative' | 'A' | 'B' | 'C';
+  versionType: 'A' | 'B' | 'C' | 'Diagnostic' | 'Formative' | 'Summative';
   purpose: string;
   items: TestItem[];
 }
@@ -81,6 +68,7 @@ export interface Slide {
 }
 
 export type DevelopmentStage = 
+  | 'Objectives' // Initial state
   | 'TLO_Generation' 
   | 'ELO_LSA_Generation' 
   | 'Outline_Verification' 
@@ -95,18 +83,19 @@ export interface Lesson {
   tlo?: TerminalObjective;
   elos: EnablingObjective[];
   subSections: SubSection[];
-  checkOnLearningItems?: TestItem[]; // 3-4 questions at the end of the lesson
-  slides?: Slide[];
-  script?: string;
-  armyRegulations?: string[];
-  scope?: string;
-  prerequisites?: string;
-  instructorQualifications?: string;
-  summary?: string;
-  referencesVerified?: boolean;
-  detectedReferences?: string[];
+  checkOnLearningItems?: TestItem[];
   stage: DevelopmentStage;
   currentSubSectionIndex: number;
+  referencesVerified?: boolean;
+  // Added missing properties identified by component usage
+  armyRegulations?: string[];
+  script?: string;
+  scope?: string;
+  prerequisites?: string;
+  media?: string;
+  ratio?: string;
+  instructorQualifications?: string;
+  slides?: Slide[];
 }
 
 export interface Course {
@@ -123,10 +112,24 @@ export interface Course {
     versionA: TestVersion;
     versionB: TestVersion;
     versionC: TestVersion;
+    // Added for wizard and TSP compatibility
+    diagnostic?: TestVersion;
+    formative?: TestVersion;
+    summative?: TestVersion;
   };
   references: string[];
   status: 'Draft' | 'Validated' | 'Accredited';
   referenceMaterial?: string;
   goldStandardExamples?: string;
   date?: string;
+}
+
+// Added missing interface used in TloReviewer
+export interface TloSuggestion {
+  lessonId: string;
+  lessonTitle: string;
+  suggestedAction: string;
+  suggestedCondition: string;
+  suggestedStandard: string;
+  reasoning: string;
 }
